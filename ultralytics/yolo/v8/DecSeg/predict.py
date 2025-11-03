@@ -11,6 +11,7 @@ class MultiPredictor(BasePredictor):
 
     def postprocess_det(self, preds, img, orig_imgs):
         """Postprocesses predictions and returns a list of Results objects."""
+        #print("preds",preds)
         preds = ops.non_max_suppression(preds,
                                         self.args.conf,
                                         self.args.iou,
@@ -30,7 +31,8 @@ class MultiPredictor(BasePredictor):
 
     def postprocess_seg(self, preds):
         """Postprocesses YOLO predictions and returns output detections with proto."""
-        preds = torch.nn.functional.interpolate(preds, size=(640, 640), mode='bilinear', align_corners=False) #phdbenel modif size
+        #print(preds.shape)
+        preds = torch.nn.functional.interpolate(preds, size=(640, 640), mode='bilinear', align_corners=False) #phdbenel modif size BADR
         preds = self.sigmoid(preds)
         _, preds = torch.max(preds, 1)
         return preds

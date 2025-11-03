@@ -21,7 +21,7 @@ Usage - formats:
 import json
 import time
 from pathlib import Path
-
+import numpy as np
 import torch
 from tqdm import tqdm
 import torch.nn as nn
@@ -231,10 +231,15 @@ class BaseValidator:
                     print(f'{elapsed_time} seconds, {32 / elapsed_time} FPS, @batch_size 32')
 
 
-            # Inference
+            # Inference # BADR MODIF
             with dt[1]:
                 if self.args.task == 'multi':
                     preds_list = model(batch[0]['img'])
+                    # Check if the shape of preds_list[0] is [1, 3, 640, 640]
+                    if not isinstance(preds_list[0], tuple): #pytorch gives tuple, onnx and tensort gives tensor
+                        #if preds_list[0].shape == torch.Size([1, 3, 640, 640]) : #Add this to do onnx
+                        preds_list[0], preds_list[1] = preds_list[1], preds_list[0]
+                        print("Swapped preds_list because shape matches for TENSORT inference")
                 else:
                     preds = model(batch['img'])
 
@@ -255,7 +260,7 @@ class BaseValidator:
                             preds = self.postprocess_det(preds)
                             preds_list_post.append(preds)
                         elif 'seg' in self.data['labels_list'][i]:
-                            preds = self.postprocess_seg(preds,i)
+                            preds = self.postprocess_seg(preds,preds)
                             preds_list_post.append(preds)
                 else:
                     preds = self.postprocess(preds)

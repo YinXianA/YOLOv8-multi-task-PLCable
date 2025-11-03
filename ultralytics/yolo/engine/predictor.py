@@ -239,6 +239,8 @@ class BasePredictor:
             with profilers[1]:
                 preds = self.model(im, augment=self.args.augment, visualize=visualize)
 
+            #preds[0], preds[1] = preds[1], preds[0] #if tensortrt add this #preds_list[0], preds_list[1] = preds_list[1], preds_list[0] BADR
+
             # Postprocess
             with profilers[2]:
                 self.results = self.postprocess(preds, im, im0s)

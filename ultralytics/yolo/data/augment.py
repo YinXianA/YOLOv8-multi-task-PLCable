@@ -619,6 +619,8 @@ class LetterBox:
         new_shape = labels.pop('rect_shape', self.new_shape)
         if isinstance(new_shape, int):
             new_shape = (new_shape, new_shape)
+        if not np.array_equal(new_shape, np.array([672, 672])):
+            new_shape = np.array([640, 640]) #for onnx it works and tensor RT PUT IF CONDITION #BADR MODIF
 
         # Scale ratio (new / old)
         r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
@@ -635,16 +637,17 @@ class LetterBox:
             dw, dh = 0.0, 0.0
             new_unpad = (new_shape[1], new_shape[0])
             ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
-
         dw /= 2  # divide padding into 2 sides
         dh /= 2
+        # Convert to numpy.float64
+
         if labels.get('ratio_pad'):
             labels['ratio_pad'] = (labels['ratio_pad'], (dw, dh))  # for evaluation
 
         if shape[::-1] != new_unpad:  # resize
             img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
-        top, bottom = int(round(dh.item() - 0.1)), int(round(dh.item() + 0.1))
-        left, right = int(round(dw.item() - 0.1)), int(round(dw.item() + 0.1))
+        top, bottom = int(round(dh.item() - 0.1)), int(round(dh.item() + 0.1)) #dh.item()
+        left, right = int(round(dw.item() - 0.1)), int(round(dw.item() + 0.1)) #dw.item()
         img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT,
                                  value=(114, 114, 114))  # add border
 

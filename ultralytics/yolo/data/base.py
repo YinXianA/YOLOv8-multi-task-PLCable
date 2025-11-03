@@ -286,10 +286,13 @@ class BaseDataset(Dataset):
                 self.global_count = i
 
                 if 'seg' in self.data['labels_list'][i]:
+                    #print("SEG")
                     transfer_lable.append(self.seg_transforms(label_list[i]))
                     # transfer_lable.append(self.transforms(label_list[0]))
                 else:
+                    #print("NOSEG")
                     # test = self.transforms(label_list[i])
+                    #print(label_list[i])
                     transfer_lable.append(self.transforms(label_list[i]))
             return transfer_lable
         ######

@@ -313,6 +313,7 @@ class AutoBackend(nn.Module):
             (tuple): Tuple containing the raw output tensor, and processed output for visualization (if visualize=True)
         """
         b, ch, h, w = im.shape  # batch, channel, height, width
+
         if self.fp16 and im.dtype != torch.float16:
             im = im.half()  # to FP16
         if self.nhwc:
@@ -329,6 +330,7 @@ class AutoBackend(nn.Module):
         elif self.onnx:  # ONNX Runtime
             im = im.cpu().numpy()  # torch to numpy
             y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
+            #print(y)
         elif self.xml:  # OpenVINO
             im = im.cpu().numpy()  # FP32
             y = list(self.executable_network([im]).values())
@@ -344,7 +346,8 @@ class AutoBackend(nn.Module):
             assert im.shape == s, f"input size {im.shape} {'>' if self.dynamic else 'not equal to'} max model size {s}"
             self.binding_addrs['images'] = int(im.data_ptr())
             self.context.execute_v2(list(self.binding_addrs.values()))
-            y = [self.bindings[x].data for x in sorted(self.output_names)]
+            y = [self.bindings[x].data for x in sorted(self.output_names)] #onnx y = self.session.run(self.output_names, {self.session.get_inputs()[0].name: im})
+            #print(y)
         elif self.coreml:  # CoreML
             im = im[0].cpu().numpy()
             im_pil = Image.fromarray((im * 255).astype('uint8'))

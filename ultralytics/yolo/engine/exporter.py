@@ -211,12 +211,13 @@ class Exporter:
         self.pretty_name = Path(self.model.yaml.get('yaml_file', self.file)).stem.replace('yolo', 'YOLO')
         trained_on = f'trained on {Path(self.args.data).name}' if self.args.data else '(untrained)'
         description = f'Ultralytics {self.pretty_name} model {trained_on}'
+        stride= int(max(model.stride)) if isinstance(model.stride, int) else  int(max(model.stride[0]))
         self.metadata = {
             'description': description,
             'author': 'Ultralytics',
             'license': 'AGPL-3.0 https://ultralytics.com/license',
             'version': __version__,
-            'stride': int(max(model.stride)),
+            'stride': stride, # if isinstance(model.stride, int) else  int(max(model.stride[0]))
             'task': model.task,
             'batch': self.args.batch,
             'imgsz': self.imgsz,

@@ -140,11 +140,11 @@ class yolov8_heatmap:
 
 def get_params():
     params = {
-        'weight': 'yolov8n.pt',
-        'cfg': 'ultralytics/cfg/models/v8/yolov8n.yaml',
+        'weight': 'C:/Users/FRDISI/Desktop/[phD]yolov8_improve/YOLOv8-multi-task-PLCable/runs/multi/AYOLO-M-Baseline25/weights/best.pt',
+        'cfg': 'C:/Users/FRDISI/Desktop/[phD]yolov8_improve/YOLOv8-multi-task-PLCable/ultralytics/models/v8/yolov8-cable-baseline-custom2.yaml',
         'device': 'cuda:0',
         'method': 'GradCAM', # GradCAMPlusPlus, GradCAM, XGradCAM
-        'layer': 'model.model[9]',
+        'layer': 'model.model[3]',
         'backward_type': 'all', # class, box, all
         'conf_threshold': 0.6, # 0.6
         'ratio': 0.02 # 0.02-0.1
@@ -153,4 +153,4 @@ def get_params():
 
 if __name__ == '__main__':
     model = yolov8_heatmap(**get_params())
-    model(r'ultralytics/assets/bus.jpg', 'result')
+    model(r"C:/Users/FRDISI/Desktop/Test_research/detect_broken_cable/DetectData/train/images/02.jpg", 'result')

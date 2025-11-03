@@ -1440,8 +1440,8 @@ class FocusedLinearAttention(nn.Module):
 
         H, W = self.resolution
         B, L, C = q.shape
-        print(H, W)
-        print(L)
+        #print(H, W)
+        #print(L)
         assert L == H * W, "flatten img_tokens has wrong size"
 
         q = self.im2cswin(q)

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-
+from ultralytics.nn.extra_modules import *
 from ultralytics.nn.modules import (AIFI, C1, C2, C3, C3TR, SPP, SPPF, Bottleneck, BottleneckCSP, C2f, C3Ghost, C3x,
-                                    Classify, Concat, Conv, ConvTranspose, Detect, DWConv, DWConvTranspose2d, Focus,
+                                    Classify, Concat, Conv, ConvTranspose, Detect, Detect_Efficient, DWConv, DWConvTranspose2d, Focus,
                                     GhostBottleneck, GhostConv, HGBlock, HGStem, Pose, RepC3, RepConv, RTDETRDecoder,
                                     Segment, Concat_dropout)
 from ultralytics.yolo.utils import DEFAULT_CFG_DICT, DEFAULT_CFG_KEYS, LOGGER, colorstr, emojis, yaml_load
@@ -153,7 +153,7 @@ class BaseModel(nn.Module):
         """
         self = super()._apply(fn)
         m = self.model[-1]  # Detect()
-        if isinstance(m, (Detect, Segment)):
+        if isinstance(m, (Detect, Segment,Detect_Efficient)):
             m.stride = fn(m.stride)
             m.anchors = fn(m.anchors)
             m.strides = fn(m.strides)
@@ -229,7 +229,7 @@ class MultiBaseModel(nn.Module):
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
             x = m(x)  # run
 
-            if isinstance(m, (Detect, Segment)):  # if it's a task head
+            if isinstance(m, (Detect, Segment,Detect_Efficient)):  # if it's a task head
                 outputs.append(x)
             # y.append(x)
             y.append(x if m.i in self.save else None)  # save output
@@ -343,7 +343,7 @@ class MultiBaseModel(nn.Module):
         """
         self = super()._apply(fn)
         for m in self.model[-3:]:  # Iterate over the last three layers
-            if isinstance(m, (Detect, Segment)):
+            if isinstance(m, (Detect, Segment,Detect_Efficient)):
                 m.stride = fn(m.stride)
                 m.anchors = fn(m.anchors)
                 m.strides = fn(m.strides)
@@ -383,7 +383,7 @@ class DetectionModel(BaseModel):
 
         # Build strides
         for m in self.model:
-            if isinstance(m, (Detect, Segment, Pose)):
+            if isinstance(m, (Detect, Segment, Pose,Detect_Efficient)):
                 s = 256  # 2x min stride
                 m.inplace = self.inplace
                 forward = lambda x: self.forward(x)[0] if isinstance(m, (Segment, Pose)) else self.forward(x)
@@ -462,7 +462,7 @@ class MultiModel(MultiBaseModel):
         count = 0
         for m in self.model:
         # m = self.model[-1]  # Detect()
-            if isinstance(m, (Detect, Segment, Pose)):
+            if isinstance(m, (Detect, Segment, Pose,Detect_Efficient)):
                 s = 256  # 2x min stride
                 m.inplace = self.inplace
 
@@ -708,7 +708,7 @@ def torch_safe_load(weight):
     check_suffix(file=weight, suffix='.pt')
     file = attempt_download_asset(weight)  # search online if missing locally
     try:
-        return torch.load(file, map_location='cpu'), file  # load
+        return torch.load(file, map_location='cpu',weights_only=False), file  # load
     except ModuleNotFoundError as e:  # e.name is missing module name
         if e.name == 'models':
             raise TypeError(
@@ -723,7 +723,7 @@ def torch_safe_load(weight):
                        f"run a command with an official YOLOv8 model, i.e. 'yolo predict model=yolov8n.pt'")
         check_requirements(e.name)  # install missing module
 
-        return torch.load(file, map_location='cpu'), file  # load
+        return torch.load(file, map_location='cpu',weights_only=False), file  # load
 
 
 def attempt_load_weights(weights, device=None, inplace=True, fuse=False):
@@ -748,7 +748,7 @@ def attempt_load_weights(weights, device=None, inplace=True, fuse=False):
     # Module compatibility updates
     for m in ensemble.modules():
         t = type(m)
-        if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Segment):
+        if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Segment,Detect_Efficient):
             m.inplace = inplace  # torch 1.7.0 compatibility
         elif t is nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
             m.recompute_scale_factor = None  # torch 1.11.0 compatibility
@@ -784,7 +784,7 @@ def attempt_load_one_weight(weight, device=None, inplace=True, fuse=False):
     # Module compatibility updates
     for m in model.modules():
         t = type(m)
-        if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Segment):
+        if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Segment,Detect_Efficient):
             m.inplace = inplace  # torch 1.7.0 compatibility
         elif t is nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
             m.recompute_scale_factor = None  # torch 1.11.0 compatibility
@@ -825,14 +825,15 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                     args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
 
         n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
-        if m in (Classify, Conv, ConvTranspose, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, Focus,
-                 BottleneckCSP, C1, C2, C2f, C3, C3TR, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x, RepC3):
+        if m in (Classify, Conv, FeaturePyramidSharedConv,  ConvTranspose, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, Focus,
+                 BottleneckCSP, C1, C2, C2f, C3, C3TR, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x, RepC3, RFCAConv,GSConv,VoVGSCSP,C2f_RFCAConv,C2f_DySnakeConv,C2f_DWR,
+                 C3_AKConv, C2f_AKConv, AKConv):
             c1, c2 = ch[f], args[0]
             if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
                 c2 = make_divisible(min(c2, max_channels) * width, 8)
 
             args = [c1, c2, *args[1:]]
-            if m in (BottleneckCSP, C1, C2, C2f, C3, C3TR, C3Ghost, C3x, RepC3):
+            if m in (BottleneckCSP, C1, C2, C2f, C3, C3TR, C3Ghost, C3x, RepC3,C2f_RFCAConv,C2f_DWR,C2f_DySnakeConv,VoVGSCSP, C3_AKConv, C2f_AKConv):
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is AIFI:
@@ -851,7 +852,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
         elif m is Concat_dropout:
             c2 = ch[-1]
             ch_list = [ch[x] for x in f]
-        elif m in (Detect, Segment, Pose, RTDETRDecoder):
+        elif m in (Detect, Segment, Pose, RTDETRDecoder,Detect_Efficient):
             args.append([ch[x] for x in f])
             if m is Segment:
                 args[2] = make_divisible(min(args[2], max_channels) * width, 8)
@@ -886,7 +887,7 @@ def yaml_model_load(path):
         LOGGER.warning(f'WARNING ⚠️ Ultralytics YOLO P6 models now use -p6 suffix. Renaming {path.stem} to {new_stem}.')
         path = path.with_stem(new_stem)
 
-    unified_path = re.sub(r'(\d+)([nslmx])(.+)?$', r'\1\3', str(path))  # i.e. yolov8x.yaml -> yolov8.yaml
+    unified_path = re.sub(r'(\d+)([nslmx])(.+)?$', r'\1\3', str(path))  # i.e. yolov8x.yaml -> yolov8-aa(baseline).yaml
     yaml_file = check_yaml(unified_path, hard=False) or check_yaml(path)
     d = yaml_load(yaml_file)  # model dict
     if not d.get('scale', False):

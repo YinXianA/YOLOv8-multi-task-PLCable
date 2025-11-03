@@ -179,6 +179,7 @@ def non_max_suppression(
     assert 0 <= iou_thres <= 1, f'Invalid IoU {iou_thres}, valid values are between 0.0 and 1.0'
     if isinstance(prediction, (list, tuple)):  # YOLOv8 model in validation model, output = (inference_out, loss_out)
         prediction = prediction[0]  # select only inference output
+    #print("preds", prediction.shape) # normalement preds torch.Size([1, 5, 8400])
 
     device = prediction.device
     mps = 'mps' in device.type  # Apple MPS

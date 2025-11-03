@@ -155,6 +155,7 @@ class BasePredictor:
         self.txt_path = str(self.save_dir / 'labels' / p.stem) + ('' if self.dataset.mode == 'image' else f'_{frame}')
         log_string += '%gx%g ' % im.shape[2:]  # print string
         plotted_img = []
+        #print("results_list",results_list)
         for i,results in enumerate(results_list):
             if isinstance(results,list):
                 result = results[idx]
@@ -193,6 +194,8 @@ class BasePredictor:
         if stream:
             return self.stream_inference(source, model)
         else:
+            #print("model",model)
+            #print("source",source)
             self.stream_inference(source, model) # merge list of Result into one
 
     def predict_cli(self, source=None, model=None):
@@ -245,13 +248,25 @@ class BasePredictor:
 
             # Preprocess
             with profilers[0]:
-                im = self.preprocess(im0s)
+                im = self.preprocess(im0s) #BADR TENSORT im torch.Size([1, 3, 640, 640]) PT im torch.Size([1, 3, 640, 640]) THIS STEP IS GOOD
 
             # Inference
             with profilers[1]:
-                preds = self.model(im, augment=self.args.augment, visualize=visualize)
+                preds = self.model(im, augment=self.args.augment, visualize=visualize) #here is the problem for predict with tensort and onnx not same format than PT BADR
+            #preds[0], preds[1] = preds[1], preds[0] #if tensortrt add this #preds_list[0], preds_list[1] = preds_list[1], preds_list[0] BADR PUT CONDITION
+            #print(preds[1].shape)
+            #print(len(preds))
+            #pt  len preds 2 preds[1].shape <class 'torch.Tensor'> torch.Size([1, 2, 640, 640]) preds[0] <class 'tuple'> len(2) preds[0][0].shape <class 'torch.Tensor'> torch.Size([1, 5, 8400])
+            #pt  preds[0][1] is list len 3 preds[0][1][0].shape torch.Size([1, 65, 80, 80]) preds[0][1][1].shape torch.Size([1, 65, 40, 40]) preds[0][1][2].shap torch.Size([1, 65, 20, 20])
+            #tensort len preds 2 preds[1].shape torch.Size([1, 5, 8400]) for det ?  preds[0].shape torch.Size([1, 2, 640, 640]) for seg ?
+            #onnx len preds 2 preds[1].shapetorch.Size([1, 2, 640, 640])  preds[0].shape torch.Size([1, 5, 8400])
 
+            #self.args.task = 'multi' # BADR ADD
             # Postprocess
+            #print(len(preds))
+            #print(preds[0].shape)
+            #print(preds[1].shape)
+
             with profilers[2]:
                 if self.args.task == 'multi':
                     self.results = []
@@ -260,13 +275,16 @@ class BasePredictor:
                             pred = self.postprocess_det(pred, im, im0s)
                             self.results.append(pred)
                         else:
+                            """if i == 0:
+                                pred = self.postprocess_det(pred, im, im0s) #test tensort BADR / seems good IT WORKS
+                                self.results.append(pred)
+                            else:"""
                             pred = self.postprocess_seg(pred)
                             self.results.append(pred)
                 else:
                     self.results = self.postprocess(preds, im, im0s)
-
+            # print("results",self.results)
             # self.run_callbacks('on_predict_postprocess_end')
-
             # Visualize, save, write results
             n = len(im0s)
             for i in range(n):
@@ -284,8 +302,9 @@ class BasePredictor:
 
                 # if self.args.show and self.plotted_img is not None:
                 #     self.show(p)
-
+                #print()
                 if self.args.save and self.plotted_img is not None:
+                    #print("plotted_img",self.plotted_img  )
                     self.save_preds(vid_cap, i, str(self.save_dir / p.name))
             # self.run_callbacks('on_predict_batch_end')
 
@@ -338,10 +357,16 @@ class BasePredictor:
     def save_preds(self, vid_cap, idx, save_path):
         """Save video predictions as mp4 at specified path."""
         im0_list = self.plotted_img
-
+        """print(len(im0_list))
+        cv2.imshow("hy", im0_list[0])
+        cv2.waitKey(1)"""
         # Save imgs
         if self.dataset.mode == 'image':
+            #print("im0_list[0]",im0_list[0][0][0].shape)  # Pt : [0](640, 640, 3) [1]torch.Size([1, 640, 640])
+            #im0_list[0] = im0_list[0].permute(0, 2, 3, 1).reshape(640, 640, 3)
             im0 = im0_list[0].copy()  # We create a copy so that we don't modify the original image
+            #im0 = im0_list[0].clone() # TENSORT BADR   TENSORT : [0]torch.Size([1, 2, 640, 640])  [1] torch.Size([1, 5, 8400])
+
 
             # Convert tensor to ndarray and remove the first dimension
             mask1 = im0_list[1][0].to(torch.uint8).cpu().numpy()

@@ -210,7 +210,7 @@ class BaseTrainer:
         Builds dataloaders and optimizer on correct rank process.
         """
         # Model
-        self.run_callbacks('on_pretrain_routine_start')
+        # self.run_callbacks('on_pretrain_routine_start')
         ckpt = self.setup_model()
         self.model = self.model.to(self.device)
         self.set_model_attributes()
@@ -282,7 +282,7 @@ class BaseTrainer:
                     self.plot_training_labels()
         self.resume_training(ckpt)
         self.scheduler.last_epoch = self.start_epoch - 1  # do not move
-        self.run_callbacks('on_pretrain_routine_end')
+        # self.run_callbacks('on_pretrain_routine_end')
 
     def _do_train(self, world_size=1):
         """Train completed, evaluate and plot if specified by arguments."""
@@ -297,7 +297,7 @@ class BaseTrainer:
         nb = len(self.train_loader)  # number of batches
         nw = max(round(self.args.warmup_epochs * nb), 100)  # number of warmup iterations
         last_opt_step = -1
-        self.run_callbacks('on_train_start')
+        # self.run_callbacks('on_train_start')
         LOGGER.info(f'Image sizes {self.args.imgsz} train, {self.args.imgsz} val\n'
                     f'Using {self.train_loader.num_workers * (world_size or 1)} dataloader workers\n'
                     f"Logging results to {colorstr('bold', self.save_dir)}\n"
@@ -308,7 +308,7 @@ class BaseTrainer:
         epoch = self.epochs  # predefine for resume fully trained model edge cases
         for epoch in range(self.start_epoch, self.epochs):
             self.epoch = epoch
-            self.run_callbacks('on_train_epoch_start')
+            # self.run_callbacks('on_train_epoch_start')
             self.model.train()
             if RANK != -1:
                 self.train_loader.sampler.set_epoch(epoch)
@@ -332,7 +332,7 @@ class BaseTrainer:
             self.tloss = None
             self.optimizer.zero_grad()
             for i, batch in pbar:
-                self.run_callbacks('on_train_batch_start')
+                # self.run_callbacks('on_train_batch_start')
                 ######Jiayuan switch the seg labels
                 # for count, map in enumerate(self.data['map']):
                 #     if map!='None':
@@ -409,12 +409,12 @@ class BaseTrainer:
                         pbar.set_description(
                             ('%11s' * 2 + '%11.4g' * (2 + loss_len)) %
                             (f'{epoch + 1}/{self.epochs}', mem, *loss_values, batch_cls, batch[0]['img'].shape[-1]))
-                        self.run_callbacks('on_batch_end')
+                        # self.run_callbacks('on_batch_end')
                         if self.args.plots and ni in self.plot_idx:
                             for count in range(len(self.tloss)):
                                 self.plot_training_samples(batch[count], ni, count)
 
-                    self.run_callbacks('on_train_batch_end')
+                    # self.run_callbacks('on_train_batch_end')
                 ######
                 else:
                     mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
@@ -424,16 +424,16 @@ class BaseTrainer:
                         pbar.set_description(
                             ('%11s' * 2 + '%11.4g' * (2 + loss_len)) %
                             (f'{epoch + 1}/{self.epochs}', mem, *losses, batch['cls'].shape[0], batch['img'].shape[-1]))
-                        self.run_callbacks('on_batch_end')
+                        # self.run_callbacks('on_batch_end')
                         if self.args.plots and ni in self.plot_idx:
                             self.plot_training_samples(batch, ni)
 
-                    self.run_callbacks('on_train_batch_end')
+                    # self.run_callbacks('on_train_batch_end')
 
             self.lr = {f'lr/pg{ir}': x['lr'] for ir, x in enumerate(self.optimizer.param_groups)}  # for loggers
 
             self.scheduler.step()
-            self.run_callbacks('on_train_epoch_end')
+            # self.run_callbacks('on_train_epoch_end')
 
             if RANK in (-1, 0):
 
@@ -456,12 +456,12 @@ class BaseTrainer:
                 # Save model
                 if self.args.save or (epoch + 1 == self.epochs):
                     self.save_model()
-                    self.run_callbacks('on_model_save')
+                    # self.run_callbacks('on_model_save')
 
             tnow = time.time()
             self.epoch_time = tnow - self.epoch_time_start
             self.epoch_time_start = tnow
-            self.run_callbacks('on_fit_epoch_end')
+            # self.run_callbacks('on_fit_epoch_end')
             torch.cuda.empty_cache()  # clears GPU vRAM at end of epoch, can help with out of memory errors
 
             # Early Stopping
@@ -480,9 +480,9 @@ class BaseTrainer:
             self.final_eval()
             if self.args.plots:
                 self.plot_metrics()
-            self.run_callbacks('on_train_end')
+            # self.run_callbacks('on_train_end')
         torch.cuda.empty_cache()
-        self.run_callbacks('teardown')
+        # self.run_callbacks('teardown')
 
     def save_model(self):
         """Save model checkpoints based on various conditions."""
@@ -660,7 +660,7 @@ class BaseTrainer:
                     else:
                         self.metrics.pop('fitness', None)
                     ######
-                    self.run_callbacks('on_fit_epoch_end')
+                    # self.run_callbacks('on_fit_epoch_end')
 
     def check_resume(self):
         """Check if resume checkpoint exists and update arguments accordingly."""

@@ -110,6 +110,7 @@ class DetectionSegmentationTrainer(BaseTrainer):
         if 'det' in name:
             self.compute_loss = Loss(de_parallel(self.model),count-len(self.data['labels_list']))
         elif 'seg' in name:
+            #print(self.data['labels_list'])
             self.compute_loss = SegLoss(de_parallel(self.model), overlap=self.args.overlap_mask, count=count-len(self.data['labels_list']), task_name = name, map=self.data['map'][count])
         return self.compute_loss(preds, batch)
 
@@ -245,6 +246,7 @@ class Loss:
         """Calculate the sum of the loss for box, cls and dfl multiplied by batch size."""
         loss = torch.zeros(3, device=self.device)  # box, cls, dfl
         feats = preds[1] if isinstance(preds, tuple) else preds
+        feats = feats[:self.stride.size(0)] #test added for efficient detect head
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
             (self.reg_max * 4, self.nc), 1)
 
